@@ -1,0 +1,28 @@
+{
+  "name": "qissa-arabic-restaurant-digital-menu-platform",
+  "version": "1.0.0",
+  "description": "Production QR-Based Restaurant Digital Menu Platform for Qissa Arabic Restaurant",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:customer": "cd customer && npm run dev",
+    "dev:admin": "cd admin && npm run dev",
+    "build:backend": "cd backend && npm install",
+    "build:customer": "cd customer && npm run build",
+    "build:admin": "cd admin && npm run build",
+    "build:all": "npm run build:customer && npm run build:admin",
+    "seed": "cd backend && npm run seed"
+  },
+  "keywords": [
+    "restaurant",
+    "digital-menu",
+    "qr-code",
+    "react",
+    "node",
+    "express",
+    "mongodb",
+    "socketio"
+  ],
+  "author": "Antigravity Engineering",
+  "license": "ISC"
+}

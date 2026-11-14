@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qissa – Arabic Restaurant</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+  <!-- ═══════════════ NAVBAR ═══════════════ -->
+  <nav class="navbar" id="navbar">
+    <a href="#" class="nav-logo">qissa</a>
+    <ul class="nav-links">
+      <li><a href="#home">Shawarma</a></li>
+      <li><a href="#menu">Recipes</a></li>
+      <li><a href="#menu">Food Menu</a></li>
+      <li><a href="#contact">Order Now</a></li>
+    </ul>
+    <a href="#contact" class="nav-login">Login</a>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- ═══════════════ HERO ═══════════════ -->
+  <section class="hero" id="home">
+    <!-- Floating ingredients – parallax layers -->
+    <img src="https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=300&q=80" alt="Spices" class="float-item float-spices" data-speed="1.8" />
+    <img src="https://images.unsplash.com/photo-1618164436241-4473940d1f5c?auto=format&fit=crop&w=200&q=80" alt="Tomatoes" class="float-item float-tomatoes" data-speed="1.4" />
+    <img src="https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=180&q=80" alt="Parsley" class="float-item float-parsley" data-speed="2.0" />
+    <img src="https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=180&q=80" alt="Onion" class="float-item float-onion" data-speed="1.6" />
+    <div class="float-bubble bubble-1" data-speed="0.8"></div>
+    <div class="float-bubble bubble-2" data-speed="1.2"></div>
+    <div class="float-bubble bubble-3" data-speed="0.6"></div>
+
+    <!-- Hero Text (left) -->
+    <div class="hero-text">
+      <h1>Take a taste<br/>Come join us.</h1>
+      <p class="hero-lead">Life is so endlessly delicious.</p>
+      <p class="hero-desc">An authentic Arabic experience — from smoky shawarma to creamy hummus, every dish at Qissa tells a story of generations of tradition.</p>
+      <a href="#menu" class="btn-explore">Explore Now</a>
+    </div>
+
+    <!-- Hero Platter (center-right) -->
+    <div class="hero-platter">
+      <img src="https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=700&q=80" alt="Arabic food platter" class="platter-img" />
+    </div>
+  </section>
+
+  <!-- ═══════════════ MENU SECTION ═══════════════ -->
+  <section class="menu-section" id="menu">
+    <!-- Floating ingredients -->
+    <img src="https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=140&q=80" alt="Herbs" class="float-item float-menu-herb" data-speed="1.5" />
+    <img src="https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=160&q=80" alt="Onion" class="float-item float-menu-onion" data-speed="1.3" />
+
+    <div class="menu-header">
+      <h2>What's on our Plate</h2>
+      <p>Please serve yourself without any hesitation</p>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="menu-tabs">
+      <button class="tab active" data-tab="appetizers">Appetizers</button>
+      <button class="tab" data-tab="mains">Main Dish</button>
+      <button class="tab" data-tab="desserts">Dessert</button>
+    </div>
+
+    <!-- Dish Cards -->
+    <div class="dishes-grid">
+      <div class="dish-card">
+        <div class="dish-img">
+          <img src="assets/images/menu-meze.jpg" alt="Cold Meze" />
+          <span class="dish-time">🕐 0:15</span>
+        </div>
+        <h3>Cold Meze Platter</h3>
+        <p>Hummus, labneh, baba ganoush with olive oil and fresh pita bread.</p>
+      </div>
+      <div class="dish-card">
+        <div class="dish-img">
+          <img src="assets/images/menu-shawarma.jpg" alt="Shawarma Platter" />
+          <span class="dish-time">🕐 0:20</span>
+        </div>
+        <h3>Qissa Signature Shawarma</h3>
+        <p>Perfectly seasoned grilled meats wrapped in fresh bread with aromatic spices.</p>
+      </div>
+      <div class="dish-card">
+        <div class="dish-img">
+          <img src="assets/images/menu-grills.jpg" alt="Mix Grill" />
+          <span class="dish-time">🕐 0:25</span>
+        </div>
+        <h3>Mix Grill Platter</h3>
+        <p>Kebabs, shish taouk, lamb chops grilled to perfection with sides.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ TESTIMONIALS ═══════════════ -->
+  <section class="testimonials" id="testimonials">
+    <!-- Floating items -->
+    <img src="https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=200&q=80" alt="Spices" class="float-item float-test-spice" data-speed="1.4" />
+    <img src="https://images.unsplash.com/photo-1618164436241-4473940d1f5c?auto=format&fit=crop&w=150&q=80" alt="Tomatoes" class="float-item float-test-tomato" data-speed="1.8" />
+
+    <div class="test-container">
+      <!-- Left: Food image -->
+      <div class="test-image">
+        <img src="assets/images/menu-kebabs.jpg" alt="Kebabs platter" />
+      </div>
+      <!-- Right: Quote -->
+      <div class="test-content">
+        <h2>Let's see what others say</h2>
+        <blockquote>
+          <p>"The flavors at Qissa transported me straight to the streets of Beirut. The shawarma is unmatched, and the cold meze platter is a work of art. I keep coming back for the kunafeh — absolutely divine!"</p>
+        </blockquote>
+        <div class="test-avatars">
+          <div class="avatar active">
+            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80" alt="Customer 1" />
+          </div>
+          <div class="avatar">
+            <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80" alt="Customer 2" />
+          </div>
+          <div class="avatar">
+            <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80" alt="Customer 3" />
+          </div>
+        </div>
+        <p class="test-author">— Rahul M., Food Blogger</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ NEWSLETTER / CTA ═══════════════ -->
+  <section class="newsletter" id="contact">
+    <!-- Floating items -->
+    <img src="https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=120&q=80" alt="Herbs" class="float-item float-news-herb" data-speed="2.0" />
+    <img src="https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=160&q=80" alt="Spices" class="float-item float-news-spice" data-speed="1.6" />
+    <img src="https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=120&q=80" alt="Onion" class="float-item float-news-onion" data-speed="1.4" />
+    <div class="float-bubble bubble-4" data-speed="0.9"></div>
+
+    <div class="news-content">
+      <h2>Easy recipes will be sent<br/>to your inbox</h2>
+      <p>Get weekly updates on the newest Arabic recipes in your mailbox!</p>
+      <form class="news-form" onsubmit="event.preventDefault()">
+        <input type="email" placeholder="your email address" required />
+        <button type="submit">subscribe</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <footer class="footer">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>Get Cooking</h4>
+        <a href="#">Shawarma Recipe</a>
+        <a href="#">Hummus Recipe</a>
+        <a href="#">Falafel Recipe</a>
+        <a href="#">Kunafeh Recipe</a>
+      </div>
+      <div class="footer-col">
+        <h4>Information</h4>
+        <a href="#">About Us</a>
+        <a href="#">Careers</a>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+      <div class="footer-col">
+        <h4>Follow Us</h4>
+        <a href="#">Instagram</a>
+        <a href="#">Facebook</a>
+        <a href="#">YouTube</a>
+        <a href="#">WhatsApp</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-logo">qissa</span>
+      <p>© 2026 Qissa Arabic Restaurant. All rights reserved.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
