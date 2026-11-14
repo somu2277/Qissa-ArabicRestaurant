@@ -2,7 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
-import { ENV } from '../config/env.js';
+import { ENV, constructTableMenuUrl, getPublicCustomerMenuUrl } from '../config/env.js';
 import { protectAdmin } from '../middleware/auth.js';
 import { Admin } from '../models/Admin.js';
 import { MenuItem } from '../models/MenuItem.js';
@@ -458,12 +458,12 @@ router.delete('/categories/:id', protectAdmin, async (req, res, next) => {
 
 // ── 5. TABLE & QR MANAGEMENT ────────────────────────────────────
 
-const generateTableQR = async (token) => {
-  const customerBase = ENV.CLIENT_CUSTOMER_URL.replace(/\/$/, '');
-  const url = `${customerBase}/menu/${token}`;
+export const generateTableQR = async (token) => {
+  const url = constructTableMenuUrl(token);
   return await QRCode.toDataURL(url, {
-    width: 400,
+    width: 512,
     margin: 2,
+    errorCorrectionLevel: 'H',
     color: { dark: '#1A1A1A', light: '#FFFFFF' },
   });
 };
@@ -471,7 +471,15 @@ const generateTableQR = async (token) => {
 router.get('/tables', protectAdmin, async (req, res, next) => {
   try {
     const tables = await Table.find().sort({ label: 1 }).lean();
-    res.json({ success: true, data: tables });
+    const enriched = tables.map((t) => ({
+      ...t,
+      qrCodeUrl: constructTableMenuUrl(t.qrToken),
+    }));
+    res.json({
+      success: true,
+      data: enriched,
+      publicMenuUrl: getPublicCustomerMenuUrl(),
+    });
   } catch (error) {
     next(error);
   }
@@ -497,10 +505,15 @@ router.post('/tables', protectAdmin, async (req, res, next) => {
       action: 'TABLE_CREATED',
       targetType: 'Table',
       targetId: table._id.toString(),
-      details: { label: table.label },
+      details: { label: table.label, url: constructTableMenuUrl(token) },
     });
 
-    res.status(201).json({ success: true, data: table });
+    const enriched = {
+      ...table.toObject(),
+      qrCodeUrl: constructTableMenuUrl(table.qrToken),
+    };
+
+    res.status(201).json({ success: true, data: enriched });
   } catch (error) {
     next(error);
   }
@@ -510,12 +523,82 @@ router.put('/tables/:id', protectAdmin, async (req, res, next) => {
   try {
     const table = await Table.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!table) return res.status(404).json({ success: false, message: 'Table not found.' });
-    res.json({ success: true, data: table });
+    const enriched = {
+      ...table.toObject(),
+      qrCodeUrl: constructTableMenuUrl(table.qrToken),
+    };
+    res.json({ success: true, data: enriched });
   } catch (error) {
     next(error);
   }
 });
 
+// Refresh QR image with canonical public URL without altering existing table token
+router.post('/tables/:id/refresh-qr', protectAdmin, async (req, res, next) => {
+  try {
+    const table = await Table.findById(req.params.id);
+    if (!table) return res.status(404).json({ success: false, message: 'Table not found.' });
+
+    const newQR = await generateTableQR(table.qrToken);
+    table.qrCodeDataUrl = newQR;
+    await table.save();
+
+    const enriched = {
+      ...table.toObject(),
+      qrCodeUrl: constructTableMenuUrl(table.qrToken),
+    };
+
+    res.json({
+      success: true,
+      data: enriched,
+      message: `QR code image refreshed with public URL for Table ${table.label}.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Sync / regenerate all table QR images to the configured public customer menu URL (preserves all tokens)
+router.post('/tables/sync-public-urls', protectAdmin, async (req, res, next) => {
+  try {
+    const tables = await Table.find();
+    let updatedCount = 0;
+
+    for (const table of tables) {
+      const publicQR = await generateTableQR(table.qrToken);
+      table.qrCodeDataUrl = publicQR;
+      await table.save();
+      updatedCount++;
+    }
+
+    const refreshed = await Table.find().sort({ label: 1 }).lean();
+    const enriched = refreshed.map((t) => ({
+      ...t,
+      qrCodeUrl: constructTableMenuUrl(t.qrToken),
+    }));
+
+    await ActivityLog.create({
+      adminId: req.admin._id,
+      adminEmail: req.admin.email,
+      action: 'ALL_TABLE_QRS_SYNCED',
+      targetType: 'Table',
+      targetId: 'ALL',
+      details: { count: updatedCount, publicMenuUrl: getPublicCustomerMenuUrl() },
+    });
+
+    res.json({
+      success: true,
+      count: updatedCount,
+      data: enriched,
+      publicMenuUrl: getPublicCustomerMenuUrl(),
+      message: `Successfully synchronized ${updatedCount} table QR codes to ${getPublicCustomerMenuUrl()}.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Regenerate Token & QR (Only when token revocation is explicitly desired)
 router.post('/tables/:id/regenerate-qr', protectAdmin, async (req, res, next) => {
   try {
     const table = await Table.findById(req.params.id);
@@ -534,10 +617,15 @@ router.post('/tables/:id/regenerate-qr', protectAdmin, async (req, res, next) =>
       action: 'QR_REGENERATED',
       targetType: 'Table',
       targetId: table._id.toString(),
-      details: { label: table.label },
+      details: { label: table.label, url: constructTableMenuUrl(newToken) },
     });
 
-    res.json({ success: true, data: table, message: 'QR Token regenerated successfully.' });
+    const enriched = {
+      ...table.toObject(),
+      qrCodeUrl: constructTableMenuUrl(table.qrToken),
+    };
+
+    res.json({ success: true, data: enriched, message: 'New QR Token and image generated successfully.' });
   } catch (error) {
     next(error);
   }

@@ -134,6 +134,16 @@ export const regenerateTableQR = async (id) => {
   return res.data;
 };
 
+export const refreshTableQRImage = async (id) => {
+  const res = await adminApi.post(`/tables/${id}/refresh-qr`);
+  return res.data;
+};
+
+export const syncAllTableQRs = async () => {
+  const res = await adminApi.post('/tables/sync-public-urls');
+  return res.data;
+};
+
 export const deleteTable = async (id) => {
   const res = await adminApi.delete(`/tables/${id}`);
   return res.data;
