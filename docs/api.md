@@ -93,14 +93,13 @@ Base URL: `http://localhost:5000/api`
 
 ## 3. Admin Management Endpoints (Protected by JWT)
 
-- **`GET /api/admin/dashboard`** — Total items, active, unavailable, categories, specials, tables, live activity logs.
+- **`GET /api/admin/dashboard`** — Total items, active, unavailable, categories, specials, tables, and AI chatbot status.
 - **`GET, POST, PUT, DELETE /api/admin/menu`** — Dish CRUD with multiple image URLs/galleries and availability toggle.
 - **`GET, POST, PUT, DELETE /api/admin/categories`** — Category management with deletion safety checks.
 - **`GET, POST, PUT, DELETE /api/admin/tables`** — Table and QR generation.
 - **`POST /api/admin/tables/:id/regenerate-qr`** — Revoke old QR token and issue new QR code immediately.
 - **`GET, POST, PUT, DELETE /api/admin/specials`** — Promotional scheduler.
 - **`GET, PUT /api/admin/settings`** — Restaurant metadata, announcement banner toggle, and chatbot configuration.
-- **`GET /api/admin/activity`** — Immutable audit log history.
 
 ---
 

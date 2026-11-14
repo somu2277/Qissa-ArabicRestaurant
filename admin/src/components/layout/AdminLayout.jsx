@@ -8,7 +8,6 @@ import {
   QrCode,
   Sparkles,
   Settings,
-  History,
   LogOut,
   Menu,
   X,
@@ -34,7 +33,6 @@ export const AdminLayout = () => {
     { to: '/specials', label: "Today's Specials", icon: Sparkles },
     { to: '/ratings', label: 'Customer Ratings', icon: Star },
     { to: '/settings', label: 'Restaurant Settings', icon: Settings },
-    { to: '/activity', label: 'Activity Logs', icon: History },
   ];
 
   return (
@@ -83,7 +81,7 @@ export const AdminLayout = () => {
         {/* Footer / Customer Link / Admin Profile */}
         <div className="p-4 border-t border-[#E9ECEF] space-y-3">
           <a
-            href="http://localhost:5173"
+            href={import.meta.env.VITE_PUBLIC_MENU_URL || 'https://qissa-arabic-restaurant.vercel.app'}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF6F0] hover:bg-[#F2EBE0] text-[#E8602C] text-xs font-semibold border border-[#E0D7C9] transition-colors"

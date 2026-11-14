@@ -44,7 +44,6 @@ A production-grade, QR-based digital restaurant menu and discovery platform for 
 - **Table & QR Management:** Add dining tables (e.g. T01, T02), generate unique unpredictable tokens, live preview QR codes, download PNGs, and print table tent cards.
 - **Today's Specials Scheduler:** Feature dishes with custom badges and promotional pricing.
 - **Restaurant Settings:** Manage branding, announcement banner text/toggle, and chatbot settings.
-- **Activity History:** Full audit trail recording all admin actions.
 
 ---
 

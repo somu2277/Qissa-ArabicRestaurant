@@ -197,10 +197,4 @@ export const updateAdminRatingSettings = async (data) => {
   return res.data;
 };
 
-// Activity Logs
-export const getActivityLogs = async () => {
-  const res = await adminApi.get('/activity');
-  return res.data.data;
-};
-
 export default adminApi;

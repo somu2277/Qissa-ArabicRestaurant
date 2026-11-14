@@ -10,7 +10,6 @@ import { Category } from '../models/Category.js';
 import { Table } from '../models/Table.js';
 import { Special } from '../models/Special.js';
 import { Restaurant } from '../models/Restaurant.js';
-import { ActivityLog } from '../models/ActivityLog.js';
 import { DishRating } from '../models/DishRating.js';
 import {
   emitMenuUpdate,
@@ -83,15 +82,6 @@ router.post('/auth/login', async (req, res, next) => {
       expiresIn: ENV.JWT_EXPIRES_IN,
     });
 
-    await ActivityLog.create({
-      adminId: admin._id,
-      adminEmail: admin.email,
-      action: 'ADMIN_LOGIN',
-      targetType: 'Admin',
-      targetId: admin._id.toString(),
-      details: { ip: req.ip },
-    });
-
     console.log(`[Admin Login Success] Logged in as: ${admin.email}`);
 
     res.json({
@@ -140,7 +130,6 @@ router.get('/dashboard', protectAdmin, async (req, res, next) => {
       totalCategories,
       activeSpecials,
       activeTables,
-      recentActivity,
       restaurant,
     ] = await Promise.all([
       MenuItem.countDocuments(),
@@ -149,7 +138,6 @@ router.get('/dashboard', protectAdmin, async (req, res, next) => {
       Category.countDocuments({ isActive: true }),
       Special.countDocuments({ isActive: true }),
       Table.countDocuments({ isActive: true }),
-      ActivityLog.find().sort({ createdAt: -1 }).limit(10).lean(),
       Restaurant.findOne().lean(),
     ]);
 
@@ -163,7 +151,6 @@ router.get('/dashboard', protectAdmin, async (req, res, next) => {
         activeSpecials,
         activeTables,
         chatbotEnabled: restaurant?.chatbotSettings?.isEnabled ?? true,
-        recentActivity,
       },
     });
   } catch (error) {
@@ -246,15 +233,6 @@ router.post('/menu', protectAdmin, async (req, res, next) => {
     const itemData = req.body;
     const newItem = await MenuItem.create(itemData);
 
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'ITEM_CREATED',
-      targetType: 'MenuItem',
-      targetId: newItem._id.toString(),
-      details: { name: newItem.name, price: newItem.price },
-    });
-
     emitMenuUpdate({ action: 'create', item: newItem });
     emitCategoryUpdate({ action: 'dish_count_changed', categoryId: newItem.categoryId });
 
@@ -275,15 +253,6 @@ router.put('/menu/:id', protectAdmin, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Item not found.' });
     }
 
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'ITEM_UPDATED',
-      targetType: 'MenuItem',
-      targetId: updated._id.toString(),
-      details: { name: updated.name, price: updated.price, isAvailable: updated.isAvailable },
-    });
-
     emitMenuUpdate({ action: 'update', item: updated });
     emitAvailabilityUpdate({ itemId: updated._id, isAvailable: updated.isAvailable });
     emitCategoryUpdate({ action: 'dish_count_changed', categoryId: updated.categoryId });
@@ -302,15 +271,6 @@ router.delete('/menu/:id', protectAdmin, async (req, res, next) => {
     }
 
     await Special.deleteMany({ menuItemId: item._id });
-
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'ITEM_DELETED',
-      targetType: 'MenuItem',
-      targetId: item._id.toString(),
-      details: { name: item.name },
-    });
 
     emitMenuUpdate({ action: 'delete', itemId: req.params.id });
     emitCategoryUpdate({ action: 'dish_count_changed', categoryId: item.categoryId });
@@ -383,15 +343,6 @@ router.post('/categories', protectAdmin, async (req, res, next) => {
   try {
     const cat = await Category.create(req.body);
 
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'CATEGORY_CREATED',
-      targetType: 'Category',
-      targetId: cat._id.toString(),
-      details: { name: cat.name },
-    });
-
     emitCategoryUpdate({ action: 'create', category: cat });
     res.status(201).json({ success: true, data: cat });
   } catch (error) {
@@ -408,15 +359,6 @@ router.put('/categories/:id', protectAdmin, async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Category not found.' });
     }
-
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'CATEGORY_UPDATED',
-      targetType: 'Category',
-      targetId: updated._id.toString(),
-      details: { name: updated.name },
-    });
 
     emitCategoryUpdate({ action: 'update', category: updated });
     res.json({ success: true, data: updated });
@@ -439,15 +381,6 @@ router.delete('/categories/:id', protectAdmin, async (req, res, next) => {
     if (!cat) {
       return res.status(404).json({ success: false, message: 'Category not found.' });
     }
-
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'CATEGORY_DELETED',
-      targetType: 'Category',
-      targetId: cat._id.toString(),
-      details: { name: cat.name },
-    });
 
     emitCategoryUpdate({ action: 'delete', categoryId: req.params.id });
     res.json({ success: true, message: 'Category deleted.' });
@@ -497,15 +430,6 @@ router.post('/tables', protectAdmin, async (req, res, next) => {
       location: location || 'Main Dining Hall',
       qrToken: token,
       qrCodeDataUrl: qrDataUrl,
-    });
-
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'TABLE_CREATED',
-      targetType: 'Table',
-      targetId: table._id.toString(),
-      details: { label: table.label, url: constructTableMenuUrl(token) },
     });
 
     const enriched = {
@@ -577,15 +501,6 @@ router.post('/tables/sync-public-urls', protectAdmin, async (req, res, next) => 
       qrCodeUrl: constructTableMenuUrl(t.qrToken),
     }));
 
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'ALL_TABLE_QRS_SYNCED',
-      targetType: 'Table',
-      targetId: 'ALL',
-      details: { count: updatedCount, publicMenuUrl: getPublicCustomerMenuUrl() },
-    });
-
     res.json({
       success: true,
       count: updatedCount,
@@ -611,15 +526,6 @@ router.post('/tables/:id/regenerate-qr', protectAdmin, async (req, res, next) =>
     table.qrCodeDataUrl = newQR;
     await table.save();
 
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'QR_REGENERATED',
-      targetType: 'Table',
-      targetId: table._id.toString(),
-      details: { label: table.label, url: constructTableMenuUrl(newToken) },
-    });
-
     const enriched = {
       ...table.toObject(),
       qrCodeUrl: constructTableMenuUrl(table.qrToken),
@@ -635,15 +541,6 @@ router.delete('/tables/:id', protectAdmin, async (req, res, next) => {
   try {
     const table = await Table.findByIdAndDelete(req.params.id);
     if (!table) return res.status(404).json({ success: false, message: 'Table not found.' });
-
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'TABLE_DELETED',
-      targetType: 'Table',
-      targetId: table._id.toString(),
-      details: { label: table.label },
-    });
 
     res.json({ success: true, message: 'Table removed.' });
   } catch (error) {
@@ -727,15 +624,6 @@ router.put('/settings', protectAdmin, async (req, res, next) => {
       await rest.save();
     }
 
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'SETTINGS_UPDATED',
-      targetType: 'Restaurant',
-      targetId: rest._id.toString(),
-      details: { name: rest.name, announcement: rest.announcement },
-    });
-
     emitSettingsUpdate(rest);
     res.json({ success: true, data: rest });
   } catch (error) {
@@ -743,21 +631,7 @@ router.put('/settings', protectAdmin, async (req, res, next) => {
   }
 });
 
-// ── 8. ACTIVITY HISTORY ─────────────────────────────────────────
-
-router.get('/activity', protectAdmin, async (req, res, next) => {
-  try {
-    const logs = await ActivityLog.find()
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-    res.json({ success: true, data: logs });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// ── 9. RATINGS MANAGEMENT ─────────────────────────────────────
+// ── 8. RATINGS MANAGEMENT ─────────────────────────────────────
 
 // GET /api/admin/ratings/stats
 router.get('/ratings/stats', protectAdmin, async (req, res, next) => {
@@ -883,15 +757,6 @@ router.put('/ratings/settings', protectAdmin, async (req, res, next) => {
     }
 
     await restaurant.save();
-
-    await ActivityLog.create({
-      adminId: req.admin._id,
-      adminEmail: req.admin.email,
-      action: 'SETTINGS_UPDATED',
-      targetType: 'Restaurant',
-      targetId: restaurant._id.toString(),
-      details: { ratingsEnabled: restaurant.ratingsSettings.isEnabled },
-    });
 
     emitSettingsUpdate(restaurant);
 

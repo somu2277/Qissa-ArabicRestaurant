@@ -7,8 +7,6 @@ import {
   Sparkles,
   AlertCircle,
   Bot,
-  Activity,
-  CheckCircle2,
 } from 'lucide-react';
 
 export const DashboardPage = () => {
@@ -112,41 +110,6 @@ export const DashboardPage = () => {
             </div>
           );
         })}
-      </div>
-
-      {/* Recent Activity Log */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E9ECEF] shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-[#E8602C]" />
-            <h2 className="font-serif text-lg font-bold text-[#1A1A1A]">Recent Activity</h2>
-          </div>
-          <span className="text-xs text-[#6B655D]">Live audit trail</span>
-        </div>
-
-        {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-          <div className="divide-y divide-[#F1F3F5]">
-            {stats.recentActivity.map((log) => (
-              <div key={log._id} className="py-3.5 flex items-center justify-between gap-4 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-[#E8602C]" />
-                  <div>
-                    <span className="font-bold text-[#1A1A1A]">{log.action}</span>
-                    <span className="text-[#6B655D] ml-2 font-mono">[{log.targetType}]</span>
-                    {log.details?.name && (
-                      <span className="text-[#1A1A1A] ml-2 font-medium">"{log.details.name}"</span>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right text-[#6B655D] whitespace-nowrap">
-                  <span>{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-[#6B655D] py-4">No recent activity logged yet.</p>
-        )}
       </div>
     </div>
   );

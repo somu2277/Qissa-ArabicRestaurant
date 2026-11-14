@@ -10,7 +10,6 @@ import { TableQRManagementPage } from './pages/TableQRManagementPage';
 import { SpecialsManagementPage } from './pages/SpecialsManagementPage';
 import { RatingsManagementPage } from './pages/RatingsManagementPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { ActivityHistoryPage } from './pages/ActivityHistoryPage';
 
 // Protected Route Guard
 const ProtectedRoute = ({ children }) => {
@@ -55,7 +54,6 @@ export default function App() {
             <Route path="specials" element={<SpecialsManagementPage />} />
             <Route path="ratings" element={<RatingsManagementPage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="activity" element={<ActivityHistoryPage />} />
           </Route>
 
           {/* Fallback */}
