@@ -4,7 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { ENV } from '../config/env.js';
+import { ENV, getPublicBackendUrl } from '../config/env.js';
+import { UploadedImage } from '../models/UploadedImage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,11 +41,21 @@ if (isCloudinaryConfigured) {
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (allowedMimes.includes(file.mimetype)) {
+  const allowedMimes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/jfif',
+    'image/pjpeg',
+  ];
+  const origName = (file.originalname || '').toLowerCase();
+  const isJfif = origName.endsWith('.jfif');
+
+  if (allowedMimes.includes(file.mimetype) || isJfif) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPG, JPEG, PNG, and WebP are allowed.'), false);
+    cb(new Error('Invalid file type. Only JPG, JPEG, JFIF, PNG, and WebP are allowed.'), false);
   }
 };
 
@@ -57,9 +68,9 @@ export const uploadMiddleware = multer({
 });
 
 /**
- * Uploads a single file buffer to Cloudinary or local disk
+ * Uploads a single file buffer to Cloudinary, local disk, and MongoDB Atlas
  * @param {Express.Multer.File} file
- * @returns {Promise<{url: string, public_id?: string, filename: string, storage: 'cloudinary' | 'local'}>}
+ * @returns {Promise<{url: string, public_id?: string, filename: string, storage: 'cloudinary' | 'database'}>}
  */
 export async function processAndUploadImage(file) {
   if (!file || !file.buffer) {
@@ -92,26 +103,56 @@ export async function processAndUploadImage(file) {
       };
     } catch (err) {
       console.warn(
-        '[ImageUploadService] Cloudinary upload failed, falling back to local storage:',
+        '[ImageUploadService] Cloudinary upload failed, falling back to local/database storage:',
         err.message
       );
     }
   }
 
-  // 2. Local Fallback Storage
-  const ext = path.extname(file.originalname) || (file.mimetype.includes('png') ? '.png' : file.mimetype.includes('webp') ? '.webp' : '.jpg');
-  const filename = `dish_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
-  const filePath = path.join(UPLOADS_DIR, filename);
+  // 2. Local & Database Storage
+  // Normalize .jfif to .jpg for universal browser compatibility
+  let origExt = (path.extname(file.originalname || '')).toLowerCase();
+  if (!origExt || origExt === '.jfif') {
+    origExt = file.mimetype.includes('png') ? '.png' : file.mimetype.includes('webp') ? '.webp' : '.jpg';
+  }
 
-  await fs.promises.writeFile(filePath, file.buffer);
+  const filename = `dish_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${origExt}`;
 
-  // Return public URL served by express.static('/uploads')
-  const host = process.env.BASE_URL || `http://localhost:${ENV.PORT}`;
+  // Save to local disk cache if directory is available
+  try {
+    const filePath = path.join(UPLOADS_DIR, filename);
+    await fs.promises.writeFile(filePath, file.buffer);
+  } catch (fsErr) {
+    console.warn('[ImageUploadService] Disk write warning (continuing to MongoDB):', fsErr.message);
+  }
+
+  // Save permanently into MongoDB Atlas collection so dyno restarts never delete it
+  try {
+    const mimeType = file.mimetype || (origExt === '.png' ? 'image/png' : origExt === '.webp' ? 'image/webp' : 'image/jpeg');
+
+    await UploadedImage.findOneAndUpdate(
+      { filename },
+      {
+        filename,
+        originalName: file.originalname || filename,
+        mimeType,
+        size: file.buffer.length,
+        data: file.buffer,
+      },
+      { upsert: true, new: true }
+    );
+    console.log(`[ImageUploadService] Saved ${filename} to MongoDB Atlas (${file.buffer.length} bytes).`);
+  } catch (dbErr) {
+    console.error('[ImageUploadService] Failed to save image to MongoDB Atlas:', dbErr);
+  }
+
+  // Construct universally accessible public URL
+  const host = getPublicBackendUrl();
   const fileUrl = `${host}/uploads/${filename}`;
 
   return {
     url: fileUrl,
     filename,
-    storage: 'local',
+    storage: 'database',
   };
 }

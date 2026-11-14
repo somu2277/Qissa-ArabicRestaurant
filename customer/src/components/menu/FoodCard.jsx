@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMenu } from '../../context/MenuContext';
 import { Star, Heart, Plus, Sparkles, AlertCircle } from 'lucide-react';
+import { resolveDishImage, handleImageError } from '../../utils/imageHelper';
 
 export const FoodCard = ({ item }) => {
   const { setSelectedDish } = useMenu();
@@ -62,11 +63,9 @@ export const FoodCard = ({ item }) => {
       {/* 1. Square Food Photograph (1:1 Aspect Ratio) matching Screen 2 */}
       <div className="relative aspect-square w-full overflow-hidden bg-[#FAF6F0]">
         <img
-          src={
-            item.primaryImage ||
-            'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80'
-          }
+          src={resolveDishImage(item.primaryImage)}
           alt={item.name}
+          onError={handleImageError}
           loading="lazy"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />

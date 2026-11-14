@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMenu } from '../../context/MenuContext';
 import { TrendingUp, Sparkles, ChevronRight, Star } from 'lucide-react';
+import { resolveDishImage, handleImageError } from '../../utils/imageHelper';
 
 export const PopularDishes = () => {
   const { popularDishes, setSelectedDish, searchQuery, selectedCategory } = useMenu();
@@ -35,8 +36,9 @@ export const PopularDishes = () => {
           >
             <div className="relative aspect-[16/11] overflow-hidden bg-[#FAF6F0]">
               <img
-                src={item.primaryImage}
+                src={resolveDishImage(item.primaryImage)}
                 alt={item.name}
+                onError={handleImageError}
                 loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />

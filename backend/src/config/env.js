@@ -10,6 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const PRODUCTION_CUSTOMER_URL = 'https://qissa-arabic-restaurant.vercel.app';
 const PRODUCTION_ADMIN_URL = 'https://qissa-admin-dashboard.vercel.app';
+const PRODUCTION_BACKEND_URL = 'https://qissa-backend.onrender.com';
 
 export const ENV = {
   PORT: process.env.PORT || 5000,
@@ -57,4 +58,28 @@ export const getPublicCustomerMenuUrl = () => {
 export const constructTableMenuUrl = (tableToken) => {
   const base = getPublicCustomerMenuUrl();
   return `${base}/menu/${tableToken}`;
+};
+
+/**
+ * Resolves the public backend URL for asset serving and uploads.
+ * Rejects localhost/127.0.0.1 in production mode so images are universally reachable.
+ */
+export const getPublicBackendUrl = () => {
+  const configured = (process.env.BACKEND_URL || process.env.BASE_URL || '').trim();
+  const isLocal =
+    !configured ||
+    configured.includes('localhost') ||
+    configured.includes('127.0.0.1') ||
+    configured.includes('192.168.') ||
+    configured.includes('10.0.') ||
+    configured.includes('172.16.');
+
+  if (ENV.NODE_ENV === 'production' || isLocal) {
+    if (configured && !isLocal) {
+      return configured.replace(/\/$/, '');
+    }
+    return PRODUCTION_BACKEND_URL;
+  }
+
+  return configured ? configured.replace(/\/$/, '') : PRODUCTION_BACKEND_URL;
 };

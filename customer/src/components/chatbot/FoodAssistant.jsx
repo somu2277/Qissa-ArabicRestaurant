@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useMenu } from '../../context/MenuContext';
 import { sendAssistantMessage, resetAssistantSession } from '../../services/api';
+import { resolveDishImage, handleImageError } from '../../utils/imageHelper';
 import {
   ArrowLeft,
   Bot,
@@ -297,11 +298,9 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal, onOpenExternal 
                           >
                             <div className="relative aspect-square w-full bg-[#FAF6F0] overflow-hidden">
                               <img
-                                src={
-                                  dish.primaryImage ||
-                                  'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'
-                                }
+                                src={resolveDishImage(dish.primaryImage)}
                                 alt={dish.name}
+                                onError={handleImageError}
                                 className="w-full h-full object-cover"
                               />
                               <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/95 backdrop-blur-xs flex items-center gap-1 shadow-xs">

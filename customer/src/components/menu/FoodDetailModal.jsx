@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMenu } from '../../context/MenuContext';
 import { getDishRatings, submitDishRating, getRelatedDishes } from '../../services/api';
+import { resolveDishImage, handleImageError } from '../../utils/imageHelper';
 import {
   X,
   ArrowLeft,
@@ -214,8 +215,9 @@ export const FoodDetailModal = () => {
         {/* 1. Hero Food Image with Top Action Bar matching Screen 3 */}
         <div className="relative aspect-[16/11] sm:aspect-[16/10] w-full bg-[#1A1A1A] overflow-hidden rounded-t-[32px] sm:rounded-t-3xl">
           <img
-            src={activeImage}
+            src={resolveDishImage(activeImage)}
             alt={selectedDish.name}
+            onError={handleImageError}
             className="w-full h-full object-cover"
           />
 
@@ -591,11 +593,9 @@ export const FoodDetailModal = () => {
                   >
                     <div className="relative aspect-square w-full bg-[#EAE3D6] overflow-hidden">
                       <img
-                        src={
-                          dish.primaryImage ||
-                          'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'
-                        }
+                        src={resolveDishImage(dish.primaryImage)}
                         alt={dish.name}
+                        onError={handleImageError}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/95 backdrop-blur-xs flex items-center gap-1 shadow-xs">

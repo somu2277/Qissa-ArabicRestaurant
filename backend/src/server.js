@@ -55,8 +55,41 @@ app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 4. Static uploads directory
+// 4. Static uploads directory with database image fallback
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+app.get('/uploads/:filename', async (req, res, next) => {
+  try {
+    const { filename } = req.params;
+    const { UploadedImage } = await import('./models/UploadedImage.js');
+    
+    // Look up in MongoDB Atlas by exact filename or common format variants
+    let imageDoc = await UploadedImage.findOne({ filename });
+    if (!imageDoc && filename.includes('.')) {
+      const base = filename.substring(0, filename.lastIndexOf('.'));
+      imageDoc = await UploadedImage.findOne({
+        filename: { $regex: new RegExp(`^${base}\\.`, 'i') },
+      });
+    }
+
+    if (imageDoc && imageDoc.data) {
+      // Opportunistically cache to local disk
+      try {
+        const localPath = path.join(__dirname, '../uploads', filename);
+        fs.promises.writeFile(localPath, imageDoc.data).catch(() => {});
+      } catch (_) {}
+
+      res.setHeader('Content-Type', imageDoc.mimeType || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.send(imageDoc.data);
+    }
+
+    // High quality culinary fallback if an asset was deleted or never uploaded
+    return res.redirect(302, 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80');
+  } catch (err) {
+    next(err);
+  }
+});
 
 // 5. Socket.IO Setup
 const io = new Server(server, {

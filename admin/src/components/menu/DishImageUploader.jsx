@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { uploadDishImage, uploadMultipleDishImages } from '../../services/adminApi';
+import { resolveDishImage, handleImageError } from '../../utils/imageHelper';
 import {
   Upload,
   Camera,
@@ -30,12 +31,23 @@ export const DishImageUploader = ({
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/jfif',
+    'image/pjpeg',
+  ];
   const maxSizeBytes = 10 * 1024 * 1024; // 10MB
 
   const validateFile = (file) => {
-    if (!allowedTypes.includes(file.type.toLowerCase())) {
-      return 'Invalid file type. Please upload a JPG, JPEG, PNG, or WebP image.';
+    const ext = (file.name || '').split('.').pop()?.toLowerCase();
+    const isJfif = ext === 'jfif';
+    const isStandardExt = ['jpg', 'jpeg', 'png', 'webp', 'jfif'].includes(ext);
+
+    if (!allowedTypes.includes(file.type?.toLowerCase()) && !isJfif && !isStandardExt) {
+      return 'Invalid file type. Please upload a JPG, JPEG, JFIF, PNG, or WebP image.';
     }
     if (file.size > maxSizeBytes) {
       return `File "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 10MB.`;
@@ -226,8 +238,9 @@ export const DishImageUploader = ({
             {/* Image Preview with 1:1 Aspect Ratio */}
             <div className="relative w-32 h-32 rounded-xl overflow-hidden bg-white border border-[#E0D7C9] shrink-0 shadow-xs">
               <img
-                src={primaryImage}
+                src={resolveDishImage(primaryImage)}
                 alt="Primary dish preview"
+                onError={handleImageError}
                 className="w-full h-full object-cover"
               />
               <span className="absolute bottom-1.5 left-1.5 bg-[#E8602C] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs flex items-center gap-0.5">
@@ -395,8 +408,9 @@ export const DishImageUploader = ({
                   }`}
                 >
                   <img
-                    src={imgUrl}
+                    src={resolveDishImage(imgUrl)}
                     alt={`Dish photo ${idx + 1}`}
+                    onError={handleImageError}
                     className="w-full h-full object-cover"
                   />
 

@@ -8,6 +8,7 @@ import {
   translateDishName,
 } from '../services/adminApi';
 import { DishImageUploader } from '../components/menu/DishImageUploader';
+import { resolveDishImage, handleImageError } from '../utils/imageHelper';
 import {
   Plus,
   Search,
@@ -329,8 +330,9 @@ export const MenuManagementPage = () => {
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <img
-                        src={item.primaryImage}
+                        src={resolveDishImage(item.primaryImage)}
                         alt={item.name}
+                        onError={handleImageError}
                         className="w-12 h-10 object-cover rounded-xl bg-gray-100 shrink-0"
                       />
                       <div>

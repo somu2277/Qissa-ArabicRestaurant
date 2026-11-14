@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMenu } from '../../context/MenuContext';
 import { Sparkles, Utensils, Star, Flame } from 'lucide-react';
+import { resolveDishImage, handleImageError } from '../../utils/imageHelper';
 
 export const TodaysSpecials = () => {
   const { specials, setSelectedDish, scrollToCategory } = useMenu();
@@ -45,8 +46,9 @@ export const TodaysSpecials = () => {
               {/* Left: Square Food Image with Chef's Choice Badge */}
               <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden shrink-0 bg-[#FAF6F0]">
                 <img
-                  src={item.primaryImage}
+                  src={resolveDishImage(item.primaryImage)}
                   alt={item.name}
+                  onError={handleImageError}
                   loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
