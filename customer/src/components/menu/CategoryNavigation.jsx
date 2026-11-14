@@ -27,33 +27,60 @@ export const CategoryNavigation = () => {
   const {
     categories,
     activeCategory,
-    selectCategory,
+    setActiveCategory,
+    scrollToCategory,
+    isNavigatingRef,
     dishCountsByCategory,
     dietaryFilter,
     setDietaryFilter,
   } = useMenu();
 
   const [isSticky, setIsSticky] = useState(false);
-  const [spyCategory, setSpyCategory] = useState(null);
 
   const initialSectionRef = useRef(null);
   const initialScrollContainerRef = useRef(null);
   const stickyScrollContainerRef = useRef(null);
   const activeInitialCardRef = useRef(null);
   const activeStickyPillRef = useRef(null);
-  const isProgrammaticScrollRef = useRef(false);
-  const programmaticTimeoutRef = useRef(null);
 
-  const currentActiveId = spyCategory || activeCategory || 'all';
+  // Helper: Smoothly scroll an element into horizontal view inside its parent container without affecting window scroll
+  const scrollContainerToChild = (container, child) => {
+    if (!container || !child) return;
+    const cRect = container.getBoundingClientRect();
+    const childRect = child.getBoundingClientRect();
 
-  // 1. Detect scroll position to show/hide the compact sticky navigation bar
+    if (childRect.left < cRect.left || childRect.right > cRect.right) {
+      const targetLeft =
+        child.offsetLeft -
+        container.offsetLeft -
+        (container.clientWidth / 2 - child.clientWidth / 2);
+
+      container.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  // 1. Detect scroll position to show/hide the compact sticky navigation bar with hysteresis
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      if (!initialSectionRef.current) return;
-      const rect = initialSectionRef.current.getBoundingClientRect();
-      // When the bottom of the initial cards section reaches or passes the 64px navbar
-      const shouldBeSticky = rect.bottom <= 74;
-      setIsSticky(shouldBeSticky);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (initialSectionRef.current) {
+            const rect = initialSectionRef.current.getBoundingClientRect();
+            setIsSticky((prev) => {
+              // Hysteresis: activates at <= 65px, deactivates at > 80px to prevent boundary flickering
+              if (!prev && rect.bottom <= 65) return true;
+              if (prev && rect.bottom > 80) return false;
+              return prev;
+            });
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -61,87 +88,88 @@ export const CategoryNavigation = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 2. ScrollSpy tracking active category or 'all' across all sections
+  // 2. ScrollSpy tracking active category section or 'all' across all sections (Observer ONLY updates state, NEVER scrolls!)
   useEffect(() => {
-    const targets = [
-      document.getElementById('explore-categories'),
-      document.getElementById('menu-header'),
-      ...document.querySelectorAll('section[data-category-id]'),
-    ].filter(Boolean);
+    const getSections = () => {
+      return Array.from(document.querySelectorAll('section[data-category-id]'));
+    };
 
-    if (targets.length === 0) return;
+    const sections = getSections();
+    if (sections.length === 0) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (isProgrammaticScrollRef.current) return;
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const catId = entry.target.getAttribute('data-category-id');
-            if (catId) {
-              setSpyCategory(catId);
-            } else if (
-              entry.target.id === 'explore-categories' ||
-              entry.target.id === 'menu-header'
-            ) {
-              setSpyCategory('all');
+        // If customer clicked a category, skip observer state updates during the programmatic scroll animation
+        if (isNavigatingRef?.current) return;
+
+        // If user is near the top of the page, active state is always 'all'
+        if (window.scrollY < 200) {
+          setActiveCategory('all');
+          return;
+        }
+
+        // Find the visible section whose top is closest to the sticky navbar offset (~145px)
+        let bestId = null;
+        let minDistance = Infinity;
+
+        const allCurrentSections = getSections();
+        allCurrentSections.forEach((sec) => {
+          const rect = sec.getBoundingClientRect();
+          if (rect.bottom > 140 && rect.top < window.innerHeight * 0.7) {
+            const dist = Math.abs(rect.top - 145);
+            if (dist < minDistance) {
+              minDistance = dist;
+              bestId = sec.getAttribute('data-category-id');
             }
           }
         });
+
+        if (bestId) {
+          setActiveCategory(bestId);
+        }
       },
       {
-        rootMargin: '-120px 0px -60% 0px',
-        threshold: 0,
+        rootMargin: '-140px 0px -55% 0px',
+        threshold: [0, 0.1, 0.25],
       }
     );
 
-    targets.forEach((sec) => observer.observe(sec));
+    sections.forEach((sec) => observer.observe(sec));
+
+    const headerEl = document.getElementById('explore-categories') || document.getElementById('menu-header');
+    if (headerEl) {
+      observer.observe(headerEl);
+    }
+
     return () => observer.disconnect();
-  }, [categories]);
+  }, [categories, setActiveCategory, isNavigatingRef]);
 
-  // 3. Auto-scroll active card horizontally into view in the initial cards section
+  // 3. Auto-scroll active card horizontally in initial cards section (ONLY when initial section is visible!)
   useEffect(() => {
-    if (activeInitialCardRef.current && initialScrollContainerRef.current) {
-      const container = initialScrollContainerRef.current;
-      const card = activeInitialCardRef.current;
-      const cRect = container.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-
-      if (cardRect.left < cRect.left || cardRect.right > cRect.right) {
-        card.scrollIntoView({
-          behavior: 'smooth',
-          inline: 'center',
-          block: 'nearest',
-        });
-      }
+    if (!isSticky && initialScrollContainerRef.current && activeInitialCardRef.current) {
+      scrollContainerToChild(
+        initialScrollContainerRef.current,
+        activeInitialCardRef.current
+      );
     }
-  }, [currentActiveId]);
+  }, [activeCategory, isSticky]);
 
-  // 4. Auto-scroll active pill horizontally into view in the compact sticky bar
+  // 4. Auto-scroll active pill horizontally in compact sticky bar (ONLY when sticky mode is active!)
   useEffect(() => {
-    if (isSticky && activeStickyPillRef.current && stickyScrollContainerRef.current) {
-      activeStickyPillRef.current.scrollIntoView({
-        behavior: 'smooth',
-        inline: 'center',
-        block: 'nearest',
-      });
+    if (isSticky && stickyScrollContainerRef.current && activeStickyPillRef.current) {
+      scrollContainerToChild(
+        stickyScrollContainerRef.current,
+        activeStickyPillRef.current
+      );
     }
-  }, [currentActiveId, isSticky]);
+  }, [activeCategory, isSticky]);
 
-  // Handle category selection
+  // Handle category manual click (Smoothly navigates to section exactly once)
   const handleCategoryClick = useCallback(
     (categoryId) => {
-      isProgrammaticScrollRef.current = true;
-      setSpyCategory(categoryId);
-      if (programmaticTimeoutRef.current) {
-        clearTimeout(programmaticTimeoutRef.current);
-      }
-      programmaticTimeoutRef.current = setTimeout(() => {
-        isProgrammaticScrollRef.current = false;
-      }, 850);
-
-      selectCategory(categoryId);
+      scrollToCategory(categoryId);
     },
-    [selectCategory]
+    [scrollToCategory]
   );
 
   const handleScrollLeft = () => {
@@ -220,7 +248,7 @@ export const CategoryNavigation = () => {
             >
               {/* "All Categories" Card (Default Selected State) */}
               {(() => {
-                const isAllActive = currentActiveId === 'all';
+                const isAllActive = activeCategory === 'all';
                 const totalCount = dishCountsByCategory['all'] ?? categories.reduce((sum, c) => sum + (dishCountsByCategory[c._id] ?? 0), 0);
 
                 return (
@@ -269,7 +297,7 @@ export const CategoryNavigation = () => {
               })()}
 
               {categories.map((cat) => {
-                const isActive = currentActiveId === cat._id;
+                const isActive = activeCategory === cat._id;
                 const count = dishCountsByCategory[cat._id] ?? cat.dishCount ?? 0;
 
                 return (
@@ -387,10 +415,10 @@ export const CategoryNavigation = () => {
           >
             {/* "All Categories" Pill */}
             <button
-              ref={currentActiveId === 'all' ? activeStickyPillRef : null}
+              ref={activeCategory === 'all' ? activeStickyPillRef : null}
               onClick={() => handleCategoryClick('all')}
               className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs transition-all whitespace-nowrap cursor-pointer ${
-                currentActiveId === 'all'
+                activeCategory === 'all'
                   ? 'bg-[#E8602C] text-white font-semibold shadow-xs'
                   : 'bg-white text-[#554E44] border border-[#E0D7C9] hover:border-[#E8602C] hover:text-[#1A1A1A] font-medium'
               }`}
@@ -400,7 +428,7 @@ export const CategoryNavigation = () => {
 
             {/* Category Pills with clean short names */}
             {categories.map((cat) => {
-              const isActive = currentActiveId === cat._id;
+              const isActive = activeCategory === cat._id;
               const shortName = getShortCategoryName(cat.name);
 
               return (

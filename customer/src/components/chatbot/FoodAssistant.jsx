@@ -20,15 +20,24 @@ import {
   CookingPot,
 } from 'lucide-react';
 
-export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
-  const { restaurant, setSelectedDish } = useMenu();
+export const FoodAssistant = ({ isOpenExternal, onCloseExternal, onOpenExternal }) => {
+  const {
+    restaurant,
+    setSelectedDish,
+    assistantOpen,
+    setAssistantOpen,
+    assistantInitialQuery,
+    setAssistantInitialQuery,
+  } = useMenu();
+
   const [internalOpen, setInternalOpen] = useState(false);
-  const isOpen = isOpenExternal !== undefined ? isOpenExternal : internalOpen;
+  const isOpen = assistantOpen || (isOpenExternal !== undefined ? isOpenExternal : internalOpen);
+
   const setIsOpen = (val) => {
-    if (onCloseExternal && !val) {
-      onCloseExternal();
-    }
+    if (setAssistantOpen) setAssistantOpen(val);
     setInternalOpen(val);
+    if (val && onOpenExternal) onOpenExternal();
+    if (!val && onCloseExternal) onCloseExternal();
   };
 
   const [messages, setMessages] = useState([]);
@@ -81,6 +90,15 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
     }
   }, [messages, isOpen, loading]);
 
+  // Listen for external trigger queries (e.g. from FoodDetailModal "Ask Assistant for Similar Dishes")
+  useEffect(() => {
+    if (isOpen && assistantInitialQuery) {
+      const q = assistantInitialQuery;
+      if (setAssistantInitialQuery) setAssistantInitialQuery(null);
+      handleSend(q);
+    }
+  }, [isOpen, assistantInitialQuery]);
+
   const handleSend = async (queryText, options = {}) => {
     const text = queryText !== undefined ? queryText : inputText;
     if ((!text.trim() && !options.action) || loading) return;
@@ -112,6 +130,7 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
         sender: 'assistant',
         text: response.reply,
         dishes: response.dishes || [],
+        suggestions: response.suggestions || [],
       };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
@@ -285,6 +304,16 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
                                 alt={dish.name}
                                 className="w-full h-full object-cover"
                               />
+                              <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/95 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    dish.isVeg ? 'bg-emerald-600' : 'bg-[#E8602C]'
+                                  }`}
+                                />
+                                <span className="text-[9px] font-bold text-[#1A1A1A]">
+                                  {dish.isVeg ? 'Veg' : 'Non-Veg'}
+                                </span>
+                              </div>
                               <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-xs">
                                 <Heart className="w-3 h-3 text-[#8C8275]" />
                               </div>
@@ -295,6 +324,11 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
                                 <h4 className="font-serif font-bold text-xs text-[#1A1A1A] truncate">
                                   {dish.name}
                                 </h4>
+                                {dish.arabicName && (
+                                  <span className="font-arabic text-[10px] text-[#C9953C] block truncate">
+                                    {dish.arabicName}
+                                  </span>
+                                )}
                                 <div className="flex items-center gap-1 mt-1 text-[10px] text-[#E8602C] font-semibold">
                                   <Star className="w-3 h-3 fill-[#E8602C]" />
                                   <span>{dish.averageRating?.toFixed(1) || '4.8'}</span>
@@ -302,6 +336,11 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
                                     ({dish.totalRatings || 140})
                                   </span>
                                 </div>
+                                {dish.matchReason && (
+                                  <span className="inline-block max-w-full truncate text-[9px] font-medium text-[#8A3B14] bg-orange-50 px-1.5 py-0.5 rounded-md mt-1 border border-orange-200/60">
+                                    {dish.matchReason}
+                                  </span>
+                                )}
                               </div>
 
                               <div className="mt-2 pt-1.5 border-t border-[#F2EBE0] flex items-center justify-between">
@@ -314,6 +353,22 @@ export const FoodAssistant = ({ isOpenExternal, onCloseExternal }) => {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Dynamic Follow-up Suggestions from Backend */}
+                  {msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="pl-9 pt-1 flex flex-wrap gap-1.5">
+                      {msg.suggestions.map((chip, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={() => handleSend(chip)}
+                          className="px-2.5 py-1 rounded-full bg-white hover:bg-orange-50 border border-[#EAE3D6] hover:border-[#E8602C] text-[#6B655D] hover:text-[#E8602C] text-[11px] font-medium transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                        >
+                          {chip}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>

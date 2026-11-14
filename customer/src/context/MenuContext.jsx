@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
 import {
   getRestaurantInfo,
@@ -33,6 +33,11 @@ export const MenuProvider = ({ children }) => {
   // Active Category (for Category Navigation bar & Scroll Spy tracking) - Default to 'all'
   const [activeCategory, setActiveCategory] = useState('all');
 
+  // Ref flag indicating customer clicked a category tab and smooth scroll is underway
+  const isNavigatingRef = useRef(false);
+  // Ref tracking initial mount so background socket refetches never flash loading spinners
+  const isInitialMountRef = useRef(true);
+
   // Filters & Search - Default dietary filter is 'all'
   const [dietaryFilter, setDietaryFilter] = useState('all'); // 'all' | 'veg' | 'non-veg'
   const [availableOnly, setAvailableOnly] = useState(false); // boolean
@@ -41,9 +46,27 @@ export const MenuProvider = ({ children }) => {
   // Selected dish for Food Detail Modal
   const [selectedDish, setSelectedDish] = useState(null);
 
-  const fetchAllData = useCallback(async () => {
+  // Food Assistant Global State
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantInitialQuery, setAssistantInitialQuery] = useState(null);
+
+  const openAssistant = useCallback((initialQuery = null) => {
+    if (initialQuery) {
+      setAssistantInitialQuery(initialQuery);
+    }
+    setAssistantOpen(true);
+  }, []);
+
+  const closeAssistant = useCallback(() => {
+    setAssistantOpen(false);
+    setAssistantInitialQuery(null);
+  }, []);
+
+  const fetchAllData = useCallback(async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial || isInitialMountRef.current) {
+        setLoading(true);
+      }
       const [restData, catData, menuData, specData, popData] = await Promise.all([
         getRestaurantInfo(),
         getCategories(),
@@ -57,21 +80,18 @@ export const MenuProvider = ({ children }) => {
       setMenuItems(menuData);
       setSpecials(specData);
       setPopularDishes(popData);
-      // Requirement: "All Categories" is the default; do not automatically select the first category.
-      if (!activeCategory) {
-        setActiveCategory('all');
-      }
       setError(null);
     } catch (err) {
       console.error('[MenuContext] Error fetching data:', err);
       setError('Unable to load menu. Please check your internet connection.');
     } finally {
       setLoading(false);
+      isInitialMountRef.current = false;
     }
-  }, [activeCategory]);
+  }, []); // Stable empty dependencies - never re-triggers on state updates!
 
   useEffect(() => {
-    fetchAllData();
+    fetchAllData(true);
 
     // Initialize Socket.IO for real-time menu, category & price updates
     const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
@@ -204,9 +224,11 @@ export const MenuProvider = ({ children }) => {
     return counts;
   }, [categories, menuItems, dietaryFilter, availableOnly, searchQuery]);
 
-  // Select a category and smoothly navigate to menu view without breaking global dietary filter
-  const selectCategory = useCallback((categoryId) => {
+  // Dedicated click navigation handler: sets activeCategory, locks observer during animation, and scrolls smoothly exactly once
+  const scrollToCategory = useCallback((categoryId) => {
+    isNavigatingRef.current = true;
     setActiveCategory(categoryId);
+
     requestAnimationFrame(() => {
       const target =
         categoryId === 'all'
@@ -228,6 +250,11 @@ export const MenuProvider = ({ children }) => {
           behavior: 'smooth',
         });
       }
+
+      // Unlock observer after smooth scroll animation completes
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 900);
     });
   }, []);
 
@@ -250,9 +277,10 @@ export const MenuProvider = ({ children }) => {
         activeCategory,
         setActiveCategory,
         selectedCategory: activeCategory, // backwards-compatible alias
-        setSelectedCategory: selectCategory,
-        selectCategory,
-        scrollToCategory: selectCategory, // backwards-compatible alias
+        setSelectedCategory: scrollToCategory,
+        selectCategory: scrollToCategory,
+        scrollToCategory,
+        isNavigatingRef,
         dietaryFilter,
         setDietaryFilter,
         availableOnly,
@@ -261,6 +289,12 @@ export const MenuProvider = ({ children }) => {
         setSearchQuery,
         selectedDish,
         setSelectedDish,
+        assistantOpen,
+        setAssistantOpen,
+        assistantInitialQuery,
+        setAssistantInitialQuery,
+        openAssistant,
+        closeAssistant,
         dishCountsByCategory,
         refreshMenu: fetchAllData,
       }}

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMenu } from '../../context/MenuContext';
-import { getDishRatings, submitDishRating } from '../../services/api';
+import { getDishRatings, submitDishRating, getRelatedDishes } from '../../services/api';
 import {
   X,
   ArrowLeft,
@@ -29,8 +29,11 @@ export const FoodDetailModal = () => {
     tableSessionToken,
     currentTable,
     updateDishRatingLocally,
+    dietaryFilter,
+    openAssistant,
   } = useMenu();
 
+  const modalRef = useRef(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -59,7 +62,11 @@ export const FoodDetailModal = () => {
   const [ratingMessage, setRatingMessage] = useState(null);
   const [ratingError, setRatingError] = useState(null);
 
-  // Initialize favorite status and fetch ratings
+  // Related / Similar Dishes State
+  const [relatedDishes, setRelatedDishes] = useState([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
+
+  // Initialize favorite status, fetch ratings and related dishes
   useEffect(() => {
     if (selectedDish?._id) {
       try {
@@ -74,6 +81,7 @@ export const FoodDetailModal = () => {
       setRatingMessage(null);
       setRatingError(null);
 
+      // Fetch Dish Ratings
       getDishRatings(selectedDish._id)
         .then((data) => {
           setRatingStats(data);
@@ -84,8 +92,34 @@ export const FoodDetailModal = () => {
         .catch((err) => {
           console.error('Error fetching dish ratings:', err);
         });
+
+      // Fetch Related / Similar Dishes (Respecting current dietary filter if active!)
+      setLoadingRelated(true);
+      const isVegParam =
+        dietaryFilter === 'veg' ? 'true' : dietaryFilter === 'non-veg' ? 'false' : undefined;
+
+      getRelatedDishes(selectedDish._id, { isVeg: isVegParam, limit: 6 })
+        .then((items) => {
+          setRelatedDishes(items || []);
+        })
+        .catch((err) => {
+          console.error('Error fetching related dishes:', err);
+          setRelatedDishes([]);
+        })
+        .finally(() => {
+          setLoadingRelated(false);
+        });
     }
-  }, [selectedDish?._id]);
+  }, [selectedDish?._id, dietaryFilter]);
+
+  const handleSelectRelatedDish = (dish) => {
+    setSelectedDish(dish);
+    setSelectedOption(null);
+    setSelectedImageIndex(0);
+    if (modalRef.current) {
+      modalRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   if (!selectedDish) return null;
 
@@ -168,12 +202,15 @@ export const FoodDetailModal = () => {
     : selectedDish.totalRatings || (selectedDish.name.length * 14 + 110);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
       {/* Background overlay */}
       <div className="absolute inset-0" onClick={closeModal} />
 
       {/* Main Bottom Sheet / Full-Width Container matching Screen 3 */}
-      <div className="relative w-full max-w-lg bg-[#FAF6F0] rounded-t-[32px] sm:rounded-3xl shadow-2xl max-h-[92vh] sm:max-h-[88vh] overflow-y-auto no-scrollbar z-10 flex flex-col animate-slide-up">
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-lg bg-[#FAF6F0] rounded-t-[32px] sm:rounded-3xl shadow-2xl max-h-[92vh] sm:max-h-[88vh] overflow-y-auto no-scrollbar z-10 flex flex-col animate-slide-up"
+      >
         {/* 1. Hero Food Image with Top Action Bar matching Screen 3 */}
         <div className="relative aspect-[16/11] sm:aspect-[16/10] w-full bg-[#1A1A1A] overflow-hidden rounded-t-[32px] sm:rounded-t-3xl">
           <img
@@ -522,17 +559,119 @@ export const FoodDetailModal = () => {
               </div>
             )}
           </div>
+
+          {/* Related Dishes / "You May Also Like" Section */}
+          <div className="pt-2 border-t border-[#F2EBE0] space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-serif font-bold text-base text-[#1A1A1A]">
+                  You May Also Like
+                </h4>
+                <p className="text-[11px] text-[#8C8275]">
+                  Curated dishes matching flavour, preparation & style
+                </p>
+              </div>
+              <span className="text-[11px] font-bold text-[#E8602C] bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200/50">
+                {relatedDishes.length} similar
+              </span>
+            </div>
+
+            {loadingRelated ? (
+              <div className="flex items-center gap-2 py-4 text-xs text-[#8C8275]">
+                <div className="w-2 h-2 rounded-full bg-[#E8602C] animate-ping" />
+                <span>Finding similar dishes...</span>
+              </div>
+            ) : relatedDishes.length > 0 ? (
+              <div className="flex items-stretch gap-3 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+                {relatedDishes.map((dish) => (
+                  <div
+                    key={dish._id}
+                    onClick={() => handleSelectRelatedDish(dish)}
+                    className="w-44 shrink-0 bg-[#FAF6F0] rounded-2xl border border-[#EAE3D6] hover:border-[#E8602C] overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group select-none"
+                  >
+                    <div className="relative aspect-square w-full bg-[#EAE3D6] overflow-hidden">
+                      <img
+                        src={
+                          dish.primaryImage ||
+                          'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'
+                        }
+                        alt={dish.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/95 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            dish.isVeg ? 'bg-emerald-600' : 'bg-[#E8602C]'
+                          }`}
+                        />
+                        <span className="text-[9px] font-bold text-[#1A1A1A]">
+                          {dish.isVeg ? 'Veg' : 'Non-Veg'}
+                        </span>
+                      </div>
+                      <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-xs">
+                        <Heart className="w-3 h-3 text-[#8C8275]" />
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h5 className="font-serif font-bold text-xs text-[#1A1A1A] line-clamp-1 group-hover:text-[#E8602C] transition-colors">
+                          {dish.name}
+                        </h5>
+                        {dish.arabicName && (
+                          <span className="font-arabic text-[10px] text-[#C9953C] block truncate">
+                            {dish.arabicName}
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1 mt-1 text-[10px] text-[#E8602C] font-semibold">
+                          <Star className="w-3 h-3 fill-[#E8602C]" />
+                          <span>{dish.averageRating?.toFixed(1) || '4.8'}</span>
+                          <span className="text-[#8C8275] font-normal">
+                            ({dish.totalRatings || 85})
+                          </span>
+                        </div>
+                        {dish.matchReason && (
+                          <span className="inline-block max-w-full truncate text-[9px] font-medium text-[#8A3B14] bg-orange-100/60 px-1.5 py-0.5 rounded-md mt-1 border border-orange-200/50">
+                            {dish.matchReason}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2 pt-1.5 border-t border-[#EAE3D6] flex items-center justify-between">
+                        <span className="font-serif font-bold text-xs text-[#1A1A1A]">
+                          ₹{dish.price}
+                        </span>
+                        <span className="text-[10px] text-[#E8602C] font-bold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                          <span>View</span>
+                          <ArrowRight className="w-2.5 h-2.5" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-[#FAF6F0] border border-[#EAE3D6] text-center text-xs text-[#8C8275]">
+                No similar dishes found under current filters.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 3. Sticky Bottom Action Bar matching Screen 3 */}
         <div className="sticky bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-[#F2EBE0] z-20">
           <button
             type="button"
-            onClick={closeModal}
+            onClick={() => {
+              if (openAssistant) {
+                openAssistant(`Recommend something similar to ${selectedDish.name}`);
+              }
+              closeModal();
+            }}
             className="w-full py-3.5 px-6 rounded-2xl bg-[#E8602C] hover:bg-[#D14E1E] text-white font-bold text-sm shadow-md shadow-[#E8602C]/25 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
           >
             <Bot className="w-4 h-4" />
-            <span>Add Recommendation</span>
+            <span>Ask Assistant for Similar Dishes</span>
           </button>
         </div>
       </div>

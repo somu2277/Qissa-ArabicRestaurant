@@ -32,6 +32,11 @@ export const getMenuItemById = async (id) => {
   return res.data.data;
 };
 
+export const getRelatedDishes = async (itemId, params = {}) => {
+  const res = await api.get(`/menu/${itemId}/related`, { params });
+  return res.data.data;
+};
+
 export const getSpecials = async () => {
   const res = await api.get('/specials');
   return res.data.data;

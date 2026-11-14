@@ -153,6 +153,7 @@ export const extractIntent = (rawMessage, currentPreferences = {}, categories = 
   // 7. Detect Preparation Methods
   if (/\b(grill|grilled|kebab|kebabs|skewer|faham|al faham|taouk|sheesh|charcoal)\b/i.test(query)) {
     intent.preparationMethods.push('grilled');
+    intent.categories.push('on-the-grills');
   }
   if (/\b(fried|crispy|deep fried|crunchy|falafel|sambousak|rakakat)\b/i.test(query)) {
     intent.preparationMethods.push('fried');
@@ -191,7 +192,8 @@ export const extractIntent = (rawMessage, currentPreferences = {}, categories = 
     intent.categories.push('sulta-salads');
     intent.mealRoles.push('starter');
   }
-  if (/\b(mezze|cold mezze|hot mezze|appetizer|starter|dips|hummus)\b/i.test(query)) {
+  if (/\b(mezze|cold mezze|hot mezze|appetizer|appetizers|starter|starters|arabic starters|dips|hummus)\b/i.test(query)) {
+    intent.categories.push('hummus-bowls', 'cold-mezze', 'hot-mezze', 'sulta-salads', 'shurba-soup');
     intent.mealRoles.push('starter');
   }
   if (/\b(shawarma|roll|rolls|wrap|pita|pocket)\b/i.test(query)) {
@@ -222,6 +224,8 @@ export const extractIntent = (rawMessage, currentPreferences = {}, categories = 
       intent.action = 'similar';
       intent.referenceDish = matchedItem;
     }
+  } else if (/\b(similar|similar dishes|recommend something similar|like this|something like this)\b/i.test(query)) {
+    intent.action = 'similar';
   }
 
   // Check if query is just a greeting
@@ -250,6 +254,7 @@ export const mergePreferences = (existing = {}, newIntent = {}) => {
     maxPrice: existing.maxPrice !== undefined ? existing.maxPrice : null,
     excludedDishIds: [...(existing.excludedDishIds || [])],
     rejectedDishIds: [...(existing.rejectedDishIds || [])],
+    referenceDishId: newIntent.referenceDish ? newIntent.referenceDish._id.toString() : (existing.referenceDishId || null),
   };
 
   // 1. Dietary override
@@ -401,6 +406,9 @@ export const applyMandatoryFilters = (candidates = [], preferences = {}, categor
       return false;
     }
     if (preferences.excludedDishIds?.includes(item._id.toString())) {
+      return false;
+    }
+    if (preferences.referenceDishId && item._id.toString() === preferences.referenceDishId.toString()) {
       return false;
     }
 
@@ -656,12 +664,16 @@ export const processAssistantQuery = async (queryText, options = {}) => {
   if (!referenceDish && referenceDishId) {
     referenceDish = allItems.find((i) => i._id.toString() === referenceDishId.toString()) || null;
   }
-  if (referenceDish) {
-    session.lastReferencedDish = referenceDish;
+  if (!referenceDish && intent.action === 'similar' && session.lastReferencedDish) {
+    referenceDish = session.lastReferencedDish;
   }
-
   // 4. Merge New Intent with Cumulative Session Preferences
   session.currentPreferences = mergePreferences(session.currentPreferences, intent);
+
+  if (referenceDish) {
+    session.lastReferencedDish = referenceDish;
+    session.currentPreferences.referenceDishId = referenceDish._id.toString();
+  }
 
   // 5. Apply Mandatory Hard Filters
   const eligibleCandidates = applyMandatoryFilters(
@@ -742,4 +754,156 @@ export const processAssistantQuery = async (queryText, options = {}) => {
     sessionId: session.sessionId,
     totalMatches: scored.length,
   };
+};
+
+/**
+ * Recommendations for an Individual Menu Item (e.g. on Food Detail Modal)
+ * Finds closely related dishes using verified culinary attributes:
+ * 1. Admin-configured related items (if any)
+ * 2. Shared key ingredients (e.g. chicken, lamb, rice, lentils)
+ * 3. Matching preparation method (e.g. grilled, slow-cooked, baked, roasted)
+ * 4. Matching flavour profile (e.g. spicy, smoky, mild, creamy, tangy)
+ * 5. Matching meal role (e.g. main, starter, dessert, beverage)
+ * 6. Matching category / food concept
+ * 
+ * Hard restrictions:
+ * - Exclude current dish
+ * - Exclude unavailable dishes (isAvailable === false)
+ * - Exclude inactive dishes (isActive === false)
+ * - Respect optional dietary filter (isVeg === true/false) if supplied in options
+ */
+export const getRelatedDishes = async (dishId, options = {}) => {
+  const { isVeg = null, limit = 4 } = options;
+
+  const [targetDish, allItems, categories] = await Promise.all([
+    MenuItem.findById(dishId).populate('categoryId', 'name slug').lean(),
+    MenuItem.find({ isActive: true, isAvailable: true })
+      .populate('categoryId', 'name slug')
+      .lean(),
+    Category.find({ isActive: true }).lean(),
+  ]);
+
+  if (!targetDish || !targetDish.isActive) {
+    return null;
+  }
+
+  const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
+
+  // Candidates: exclude target dish and unavailable dishes
+  let candidates = allItems.filter((item) => item._id.toString() !== targetDish._id.toString());
+
+  // Hard filter: dietary preference if explicitly specified
+  if (isVeg !== null && isVeg !== undefined && isVeg !== '' && isVeg !== 'all') {
+    const vegBool = isVeg === 'true' || isVeg === true;
+    candidates = candidates.filter((item) => item.isVeg === vegBool);
+  }
+
+  // Target dish attributes for matching
+  const targetFlavours = (targetDish.flavours || []).map((f) => f.toLowerCase());
+  const targetPrep = (targetDish.preparationMethods || []).map((p) => p.toLowerCase());
+  const targetChars = (targetDish.characteristics || []).map((c) => c.toLowerCase());
+  const targetIngredients = (targetDish.ingredients || []).map((i) => i.toLowerCase().trim());
+  const targetTags = (targetDish.tags || []).map((t) => t.toLowerCase().trim());
+  const targetCatId = targetDish.categoryId?._id ? targetDish.categoryId._id.toString() : targetDish.categoryId?.toString();
+
+  // Score each candidate
+  const scored = candidates.map((item) => {
+    let score = 0;
+    const matchReasons = [];
+
+    const itemFlavours = (item.flavours || []).map((f) => f.toLowerCase());
+    const itemPrep = (item.preparationMethods || []).map((p) => p.toLowerCase());
+    const itemChars = (item.characteristics || []).map((c) => c.toLowerCase());
+    const itemIngredients = (item.ingredients || []).map((i) => i.toLowerCase().trim());
+    const itemTags = (item.tags || []).map((t) => t.toLowerCase().trim());
+    const itemCatId = item.categoryId?._id ? item.categoryId._id.toString() : item.categoryId?.toString();
+
+    // 1. Dietary Affinity (Same dietary type gives strong cohesion)
+    if (item.isVeg === targetDish.isVeg) {
+      score += 15;
+    }
+
+    // 2. Ingredient Affinity: shared ingredients or tags
+    const sharedIngredients = targetIngredients.filter((ti) =>
+      itemIngredients.some((ii) => ii.includes(ti) || ti.includes(ii)) ||
+      itemTags.some((tag) => tag.includes(ti) || ti.includes(tag))
+    );
+    if (sharedIngredients.length > 0) {
+      score += Math.min(sharedIngredients.length * 15, 35);
+      const sample = sharedIngredients[0];
+      matchReasons.push(sample.charAt(0).toUpperCase() + sample.slice(1));
+    }
+
+    // 3. Preparation Method Match
+    const sharedPrep = targetPrep.filter((tp) => itemPrep.includes(tp));
+    if (sharedPrep.length > 0) {
+      score += Math.min(sharedPrep.length * 12, 25);
+      matchReasons.push(sharedPrep[0].charAt(0).toUpperCase() + sharedPrep[0].slice(1));
+    }
+
+    // 4. Flavour Profile Match
+    const sharedFlavours = targetFlavours.filter((tf) => itemFlavours.includes(tf));
+    if (sharedFlavours.length > 0) {
+      score += Math.min(sharedFlavours.length * 10, 20);
+      matchReasons.push(sharedFlavours[0].charAt(0).toUpperCase() + sharedFlavours[0].slice(1));
+    }
+
+    // 5. Meal Role Match (both 'main', both 'starter', both 'dessert', etc.)
+    if (targetDish.mealRole && item.mealRole && targetDish.mealRole === item.mealRole) {
+      score += 10;
+    }
+
+    // 6. Category Match
+    if (targetCatId && itemCatId && targetCatId === itemCatId) {
+      score += 12;
+      const catName = categoryMap.get(itemCatId)?.name;
+      if (catName && !matchReasons.includes(catName)) {
+        matchReasons.push(catName);
+      }
+    }
+
+    // 7. Characteristics Match
+    const sharedChars = targetChars.filter((tc) => itemChars.includes(tc));
+    if (sharedChars.length > 0) {
+      score += sharedChars.length * 5;
+    }
+
+    // 8. Minor tie-breakers: Bestseller / Chef's choice
+    if (item.badges?.includes('bestseller')) score += 3;
+    if (item.badges?.includes('chef_choice')) score += 2;
+
+    return {
+      item,
+      score,
+      matchReason: Array.from(new Set(matchReasons)).slice(0, 2).join(' • ') || 'Similar Choice',
+    };
+  });
+
+  // Sort descending by score
+  scored.sort((a, b) => b.score - a.score);
+
+  // Return top N
+  const results = scored.slice(0, Number(limit) || 4).map((s) => ({
+    _id: s.item._id,
+    name: s.item.name,
+    arabicName: s.item.arabicName,
+    price: s.item.price,
+    priceOptions: s.item.priceOptions,
+    primaryImage: s.item.primaryImage,
+    images: s.item.images,
+    isVeg: s.item.isVeg,
+    badges: s.item.badges || [],
+    averageRating: s.item.averageRating || 0,
+    totalRatings: s.item.totalRatings || 0,
+    categoryName: categoryMap.get(s.item.categoryId?._id?.toString() || s.item.categoryId?.toString())?.name || '',
+    matchReason: s.matchReason,
+    score: s.score,
+    description: s.item.description,
+    ingredients: s.item.ingredients || [],
+    flavours: s.item.flavours || [],
+    preparationMethods: s.item.preparationMethods || [],
+    mealRole: s.item.mealRole || 'main',
+  }));
+
+  return results;
 };

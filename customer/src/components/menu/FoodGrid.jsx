@@ -74,7 +74,7 @@ export const FoodGrid = () => {
     selectCategory,
   } = useMenu();
 
-  if (loading) {
+  if (loading && categories.length === 0) {
     return (
       <div className="py-20 text-center">
         <div className="inline-block w-10 h-10 border-4 border-[#E8602C] border-t-transparent rounded-full animate-spin mb-4" />

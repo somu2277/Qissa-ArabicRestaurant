@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useMenu } from '../context/MenuContext';
 import { AnnouncementStrip } from '../components/layout/AnnouncementStrip';
 import { Navbar } from '../components/layout/Navbar';
 import { HeroSection } from '../components/layout/HeroSection';
@@ -14,8 +15,8 @@ import { FoodAssistant } from '../components/chatbot/FoodAssistant';
 import { BottomNavigation } from '../components/layout/BottomNavigation';
 
 export const HomePage = () => {
+  const { assistantOpen, setAssistantOpen, openAssistant } = useMenu();
   const [activeBottomTab, setActiveBottomTab] = useState('menu');
-  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const handleSearchShortcut = () => {
     const el = document.getElementById('search-anchor');
@@ -73,6 +74,7 @@ export const HomePage = () => {
       {/* 8. Food Assistant matching Screen 4 */}
       <FoodAssistant
         isOpenExternal={assistantOpen}
+        onOpenExternal={() => setAssistantOpen(true)}
         onCloseExternal={() => setAssistantOpen(false)}
       />
 
@@ -83,7 +85,7 @@ export const HomePage = () => {
       <BottomNavigation
         activeTab={activeBottomTab}
         onTabChange={setActiveBottomTab}
-        onOpenAssistant={() => setAssistantOpen(true)}
+        onOpenAssistant={() => openAssistant()}
         onOpenRatings={handleOpenRatings}
       />
     </div>

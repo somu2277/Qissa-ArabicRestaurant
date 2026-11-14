@@ -10,7 +10,7 @@ import { MenuInteraction } from '../models/MenuInteraction.js';
 import { TableVisitSession } from '../models/TableVisitSession.js';
 import { DishRating } from '../models/DishRating.js';
 import { emitDishRatingUpdated } from '../socket/socketHandler.js';
-import { processAssistantQuery } from '../services/recommendationEngine.js';
+import { processAssistantQuery, getRelatedDishes } from '../services/recommendationEngine.js';
 
 const router = express.Router();
 
@@ -196,6 +196,31 @@ router.get('/menu/:itemId', async (req, res, next) => {
     MenuItem.findByIdAndUpdate(item._id, { $inc: { viewCount: 1 } }).exec();
 
     res.json({ success: true, data: item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 5b. GET /api/public/menu/:itemId/related - Individual Menu Item Recommendations
+router.get('/menu/:itemId/related', async (req, res, next) => {
+  try {
+    const { itemId } = req.params;
+    const { isVeg, limit } = req.query;
+
+    const related = await getRelatedDishes(itemId, { isVeg, limit });
+
+    if (related === null) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu item not found or unavailable.',
+      });
+    }
+
+    res.json({
+      success: true,
+      count: related.length,
+      data: related,
+    });
   } catch (error) {
     next(error);
   }

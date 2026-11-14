@@ -3,7 +3,7 @@ import { useMenu } from '../../context/MenuContext';
 import { Sparkles, Utensils, Star, Flame } from 'lucide-react';
 
 export const TodaysSpecials = () => {
-  const { specials, setSelectedDish } = useMenu();
+  const { specials, setSelectedDish, scrollToCategory } = useMenu();
 
   if (!specials || specials.length === 0) return null;
 
@@ -20,12 +20,12 @@ export const TodaysSpecials = () => {
           </h2>
         </div>
 
-        <a
-          href="#menu-section"
-          className="text-xs font-semibold text-[#E8602C] hover:text-[#D14E1E] transition-colors"
+        <button
+          onClick={() => scrollToCategory('all')}
+          className="text-xs font-semibold text-[#E8602C] hover:text-[#D14E1E] transition-colors cursor-pointer"
         >
           View All
-        </a>
+        </button>
       </div>
 
       {/* Specials Cards: Horizontal Featured Card on Mobile, Grid on Tablet/Desktop */}
